@@ -60,7 +60,9 @@ func Sidecar(jaeger *v1.Jaeger, dep *appsv1.Deployment) *appsv1.Deployment {
 	hasAgent, agentContainerIndex := HasJaegerAgent(dep)
 	logFields.Debug("injecting sidecar")
 	if hasAgent { // This is an update
-		dep.Spec.Template.Spec.Containers[agentContainerIndex] = container(jaeger, dep)
+		logFields.Trace("deployment has Jaeger agent %s, skipping sidecar injection", agentContainerIndex)
+		//why reinject sidecar when jaeger agent exist ? 
+		//dep.Spec.Template.Spec.Containers[agentContainerIndex] = container(jaeger, dep)
 	} else {
 		dep.Spec.Template.Spec.Containers = append(dep.Spec.Template.Spec.Containers, container(jaeger, dep))
 
@@ -281,12 +283,15 @@ func container(jaeger *v1.Jaeger, dep *appsv1.Deployment) corev1.Container {
 }
 
 func decorate(dep *appsv1.Deployment) {
-	app, found := dep.Spec.Template.Labels["app.kubernetes.io/instance"]
+	// Newton component name, true kubernetes service name
+	app, found := dep.Spec.Template.Labels["app"]
 	if !found {
+	// Newton application name
 		app, found = dep.Spec.Template.Labels["app.kubernetes.io/name"]
 	}
 	if !found {
-		app, found = dep.Spec.Template.Labels["app"]
+	// This label auto inject by newton-cd 
+		app, found = dep.Spec.Template.Labels["app.kubernetes.io/instance"]
 	}
 	if found {
 		// Append the namespace to the app name. Using the DNS style "<app>.<namespace>""
